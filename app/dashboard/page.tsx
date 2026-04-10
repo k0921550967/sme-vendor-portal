@@ -25,14 +25,22 @@ export default async function DashboardPage() {
   // 取得所有課程資料
   const allCourses = await getCourseData().catch(() => [] as CourseRecord[]);
 
-  // 根據角色過濾課程
-  let filteredCourses: CourseRecord[];
-  if (authRecord.role === "admin" || authRecord.allowed_categories === "ALL") {
-    filteredCourses = allCourses;
-  } else {
-    const allowed = authRecord.allowed_categories as string[];
-    filteredCourses = allCourses.filter((c) => allowed.includes(c.category));
+  function matchFilter(
+    courseValues: string | string[],
+    allowed: string[] | "ALL"
+  ): boolean {
+    if (allowed === "ALL") return true;
+    const values = Array.isArray(courseValues) ? courseValues : [courseValues];
+    return values.some((v) => allowed.includes(v));
   }
+
+  // 根據所有授權維度過濾課程（欄位間 AND，欄位內多值 OR）
+  const filteredCourses = allCourses.filter(
+    (c) =>
+      matchFilter(c.category, authRecord.allowed_categories) &&
+      matchFilter(c.school_name, authRecord.allowed_schools) &&
+      matchFilter(c.teachers, authRecord.allowed_teachers)
+  );
 
   // viewer 隱藏 student_count
   const showStudentCount = authRecord.role !== "viewer";

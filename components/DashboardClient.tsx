@@ -96,7 +96,7 @@ export default function DashboardClient({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜尋班級名稱、機構、類別、地址..."
+            placeholder="搜尋班級名稱、開課單位、類別、地址..."
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
           />
         </div>
@@ -125,7 +125,7 @@ export default function DashboardClient({
                   班級名稱
                 </th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                  承辦機構
+                  開課單位
                 </th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
                   地址

@@ -19,6 +19,8 @@ export interface AuthRecord {
   vendor_name: string;
   role: UserRole;
   allowed_categories: string[] | "ALL";
+  allowed_schools: string[] | "ALL";
+  allowed_teachers: string[] | "ALL";
   status: string;
 }
 

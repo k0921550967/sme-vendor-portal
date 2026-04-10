@@ -56,11 +56,17 @@ export async function getCourseData(): Promise<CourseRecord[]> {
     }));
 }
 
+function parseFilter(value: string | undefined): string[] | "ALL" {
+  const v = value?.trim() || "";
+  if (!v || v === "ALL") return "ALL";
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 export async function getAuthRecord(email: string): Promise<AuthRecord | null> {
   const sheets = getSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "授權名單!A2:E",
+    range: "授權名單!A2:G",
   });
 
   const rows = response.data.values || [];
@@ -72,20 +78,13 @@ export async function getAuthRecord(email: string): Promise<AuthRecord | null> {
 
   if (!row) return null;
 
-  const categoryField = row[3]?.trim() || "";
-  const allowed_categories =
-    categoryField === "ALL"
-      ? ("ALL" as const)
-      : categoryField
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-
   return {
     gmail: row[0],
     vendor_name: row[1] || "",
     role: (row[2] || "viewer") as AuthRecord["role"],
-    allowed_categories,
+    allowed_categories: parseFilter(row[3]),
+    allowed_schools: parseFilter(row[5]),
+    allowed_teachers: parseFilter(row[6]),
     status: row[4] || "",
   };
 }
