@@ -22,12 +22,16 @@ function parseArrayField(value: string | undefined): string[] {
   if (!value) return [];
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [value];
+    if (Array.isArray(parsed)) {
+      // JSON 陣列中每個元素可能還含有頓號分隔的多個名稱
+      return parsed.flatMap((s: string) =>
+        String(s).split(/[,、]/).map((t) => t.trim()).filter(Boolean)
+      );
+    }
+    return String(parsed).split(/[,、]/).map((s) => s.trim()).filter(Boolean);
   } catch {
-    return value
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    // 非 JSON 格式，直接用逗號或頓號分割
+    return value.split(/[,、]/).map((s) => s.trim()).filter(Boolean);
   }
 }
 
