@@ -26,7 +26,7 @@ export async function GET() {
 
     // 根據角色過濾
     let filteredCourses: CourseRecord[];
-    if (authRecord.role === "admin" || authRecord.allowed_categories === "ALL") {
+    if (authRecord.allowed_categories === "ALL") {
       filteredCourses = allCourses;
     } else {
       const allowed = authRecord.allowed_categories as string[];

@@ -20,6 +20,16 @@ function formatDateTime(iso: string): string {
   }
 }
 
+const CATEGORY_COLORS = [
+  "bg-blue-50 border border-blue-200 text-blue-700",
+  "bg-green-50 border border-green-200 text-green-700",
+  "bg-yellow-50 border border-yellow-200 text-yellow-700",
+  "bg-purple-50 border border-purple-200 text-purple-700",
+  "bg-pink-50 border border-pink-200 text-pink-700",
+  "bg-indigo-50 border border-indigo-200 text-indigo-700",
+  "bg-orange-50 border border-orange-200 text-orange-700",
+];
+
 export default function DashboardClient({
   courses,
   showStudentCount,
@@ -28,6 +38,26 @@ export default function DashboardClient({
   showStudentCount: boolean;
 }) {
   const [query, setQuery] = useState("");
+
+  const categoryColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    let idx = 0;
+    courses.forEach((c) => {
+      if (c.category && !(c.category in map)) {
+        map[c.category] = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+        idx++;
+      }
+    });
+    return map;
+  }, [courses]);
+
+  const mainUpdatedAt = useMemo(() => {
+    const freq: Record<string, number> = {};
+    courses.forEach((c) => {
+      if (c.updated_at) freq[c.updated_at] = (freq[c.updated_at] || 0) + 1;
+    });
+    return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }, [courses]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return courses;
@@ -46,7 +76,7 @@ export default function DashboardClient({
       {/* Stats */}
       <StatsCards courses={courses} />
 
-      {/* Search */}
+      {/* Search + 更新時間同一列 */}
       <div className="mb-4 flex items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <svg
@@ -73,6 +103,14 @@ export default function DashboardClient({
         {query && (
           <span className="text-sm text-gray-500">
             找到 <strong>{filtered.length}</strong> 筆
+          </span>
+        )}
+        {mainUpdatedAt && (
+          <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">
+            資料更新時間：
+            <span className="text-gray-500 font-medium">
+              {formatDateTime(mainUpdatedAt)}
+            </span>
           </span>
         )}
       </div>
@@ -124,7 +162,7 @@ export default function DashboardClient({
               ) : (
                 filtered.map((course, idx) => (
                   <tr
-                    key={course.id || idx}
+                    key={`${course.id || ""}-${idx}`}
                     className={`border-t border-gray-100 hover:bg-blue-50 transition-colors ${
                       idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                     }`}
@@ -160,13 +198,24 @@ export default function DashboardClient({
                         : "-"}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-block bg-brand-100 text-brand-700 text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+                      <span
+                        className={`inline-block text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                          categoryColorMap[course.category] ??
+                          "bg-gray-100 border border-gray-200 text-gray-600"
+                        }`}
+                      >
                         {course.category || "-"}
                       </span>
                     </td>
                     {showStudentCount && (
                       <td className="px-4 py-3 text-center text-gray-600 font-medium">
                         {course.student_count ?? "-"}
+                        {course.updated_at &&
+                          course.updated_at !== mainUpdatedAt && (
+                            <div className="text-gray-400 font-normal mt-0.5" style={{ fontSize: "10px" }}>
+                              更新：{formatDateTime(course.updated_at)}
+                            </div>
+                          )}
                       </td>
                     )}
                   </tr>
