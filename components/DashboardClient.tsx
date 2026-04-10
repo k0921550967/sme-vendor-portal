@@ -38,6 +38,7 @@ export default function DashboardClient({
   showStudentCount: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const categoryColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -60,21 +61,31 @@ export default function DashboardClient({
   }, [courses]);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return courses;
-    const q = query.toLowerCase();
-    return courses.filter(
-      (c) =>
-        c.class_name.toLowerCase().includes(q) ||
-        c.school_name.some((s) => s.toLowerCase().includes(q)) ||
-        c.category.toLowerCase().includes(q) ||
-        c.schedule_address.toLowerCase().includes(q)
-    );
-  }, [courses, query]);
+    let result = courses;
+    if (selectedCategory) {
+      result = result.filter((c) => c.category === selectedCategory);
+    }
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.class_name.toLowerCase().includes(q) ||
+          c.school_name.some((s) => s.toLowerCase().includes(q)) ||
+          c.category.toLowerCase().includes(q) ||
+          c.schedule_address.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [courses, query, selectedCategory]);
 
   return (
     <>
       {/* Stats */}
-      <StatsCards courses={courses} />
+      <StatsCards
+        courses={courses}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+      />
 
       {/* Search + 更新時間同一列 */}
       <div className="mb-4 flex items-center gap-3">
@@ -100,7 +111,16 @@ export default function DashboardClient({
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
           />
         </div>
-        {query && (
+        {selectedCategory && (
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className="flex items-center gap-1 text-xs bg-brand-100 text-brand-700 border border-brand-200 px-2 py-1 rounded-full hover:bg-brand-200 transition-colors"
+          >
+            {selectedCategory}
+            <span className="text-brand-400 font-bold">×</span>
+          </button>
+        )}
+        {(query || selectedCategory) && (
           <span className="text-sm text-gray-500">
             找到 <strong>{filtered.length}</strong> 筆
           </span>
