@@ -39,20 +39,25 @@ export default function Header({ user }: { user: UserInfo }) {
 
         {/* Right: User info + logout */}
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-white font-semibold text-sm leading-tight">
-              {user.vendor_name}
+          <div className="hidden sm:flex flex-col items-end gap-0.5">
+            {/* 廠商名稱 + 角色標籤 + email 同一區塊 */}
+            <div className="flex items-center gap-2">
+              <span className="text-white font-bold text-sm leading-tight">
+                {user.vendor_name}
+              </span>
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded-full ${role.color}`}
+              >
+                {role.text}
+              </span>
+            </div>
+            <span className="text-blue-200 text-xs leading-tight">
+              {user.email}
             </span>
-            <span className="text-blue-200 text-xs">{user.email}</span>
           </div>
-          <span
-            className={`text-xs font-medium px-2 py-0.5 rounded-full ${role.color}`}
-          >
-            {role.text}
-          </span>
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            className="ml-1 text-xs text-blue-200 hover:text-white border border-blue-400 hover:border-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            className="text-xs text-blue-200 hover:text-white border border-blue-400 hover:border-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
           >
             登出
           </button>

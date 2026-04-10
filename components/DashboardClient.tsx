@@ -134,7 +134,7 @@ export default function DashboardClient({
                   開課時間
                 </th>
                 <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">
-                  時數
+                  時數(小時)
                 </th>
                 <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
                   教師

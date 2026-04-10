@@ -25,9 +25,9 @@ export default function StatsCards({ courses }: { courses: CourseRecord[] }) {
   const categories = Object.entries(stats.byCategory);
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
+    <div className="flex flex-wrap gap-3 mb-6">
       {/* 全部 */}
-      <div className="bg-brand-700 text-white rounded-xl p-4 flex flex-col gap-1 shadow-sm">
+      <div className="bg-brand-700 text-white rounded-xl p-4 flex flex-col gap-1 shadow-sm min-w-[120px]">
         <span className="text-blue-100 text-xs font-medium">全部課程</span>
         <span className="text-3xl font-bold">{stats.total}</span>
         <span className="text-blue-200 text-xs">筆</span>
@@ -37,11 +37,11 @@ export default function StatsCards({ courses }: { courses: CourseRecord[] }) {
       {categories.map(([cat, count], idx) => (
         <div
           key={cat}
-          className={`rounded-xl p-4 flex flex-col gap-1 shadow-sm border ${
+          className={`rounded-xl p-4 flex flex-col gap-1 shadow-sm border min-w-[120px] ${
             categoryColors[idx % categoryColors.length]
           }`}
         >
-          <span className="text-xs font-medium truncate" title={cat}>
+          <span className="text-xs font-medium leading-snug break-words">
             {cat}
           </span>
           <span className="text-3xl font-bold">{count}</span>
