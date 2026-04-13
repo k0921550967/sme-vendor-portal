@@ -27,7 +27,7 @@ export default async function HomePage() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">SME 廠商入口</h1>
+          <h1 className="text-2xl font-bold text-gray-900">SME 開課廠商入口</h1>
           <p className="text-gray-500 text-sm text-center">
             請使用授權的 Google 帳號登入以查詢課程資料
           </p>

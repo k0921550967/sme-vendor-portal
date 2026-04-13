@@ -34,7 +34,7 @@ export default function Header({ user }: { user: UserInfo }) {
               </svg>
             </div>
             <span className="text-white font-bold text-lg tracking-wide">
-              SME 廠商入口
+               2026 SME開課廠商查詢
             </span>
           </div>
 
