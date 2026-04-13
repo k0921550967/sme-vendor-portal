@@ -1,6 +1,34 @@
 import { signOut } from "@/auth";
+import { auth } from "@/auth";
+import { appendLoginLog } from "@/lib/google-sheets";
 
-export default function UnauthorizedPage() {
+const REASON_LABEL: Record<string, string> = {
+  not_found: "不在名單或帳號停用",
+  disabled: "帳號停用",
+  unknown: "未知原因",
+};
+
+export default async function UnauthorizedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reason?: string }>;
+}) {
+  const params = await searchParams;
+  const reason = params.reason ?? "unknown";
+  const reasonLabel = REASON_LABEL[reason] ?? reason;
+
+  // 取得登入者 email 寫入拒絕記錄
+  const session = await auth().catch(() => null);
+  if (session?.user?.email) {
+    void appendLoginLog({
+      gmail: session.user.email,
+      vendor_name: "-",
+      role: "-",
+      result: "拒絕存取",
+      reason: reasonLabel,
+    });
+  }
+
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-md flex flex-col items-center gap-6 text-center">

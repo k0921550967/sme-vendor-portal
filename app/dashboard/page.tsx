@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getAuthRecord, getCourseData } from "@/lib/google-sheets";
+import { getAuthRecord, getCourseData, appendLoginLog } from "@/lib/google-sheets";
 import { CourseRecord } from "@/types";
 import Header from "@/components/Header";
 import DashboardClient from "@/components/DashboardClient";
@@ -19,7 +19,8 @@ export default async function DashboardPage() {
   // 查授權名單
   const authRecord = await getAuthRecord(email).catch(() => null);
   if (!authRecord) {
-    redirect("/unauthorized");
+    // 判斷是不在名單還是停用（再查一次不過濾狀態）
+    redirect("/unauthorized?reason=not_found");
   }
 
   // 取得所有課程資料
@@ -51,6 +52,15 @@ export default async function DashboardPage() {
     role: authRecord.role,
     allowed_categories: authRecord.allowed_categories,
   };
+
+  // 寫入登入記錄（非同步，不阻塞頁面渲染）
+  void appendLoginLog({
+    gmail: email,
+    vendor_name: authRecord.vendor_name,
+    role: authRecord.role,
+    result: "登入成功",
+    reason: "正常",
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

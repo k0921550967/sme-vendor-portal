@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import bcrypt from "bcryptjs";
 import { AuthRecord, CourseRecord } from "@/types";
 
 function getGoogleAuth() {
@@ -91,6 +92,75 @@ export async function getAuthRecord(email: string): Promise<AuthRecord | null> {
     allowed_teachers: parseFilter(row[6]),
     status: row[4] || "",
   };
+}
+
+export async function verifyCredentials(
+  email: string,
+  password: string
+): Promise<{ email: string } | null> {
+  const sheets = getSheetsClient();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "授權名單!A2:H",
+  });
+
+  const rows = response.data.values || [];
+  const row = rows.find(
+    (r) =>
+      r[0]?.toLowerCase() === email.toLowerCase() &&
+      r[4]?.trim() === "啟用"
+  );
+
+  if (!row) return null;
+
+  const hash = row[7]?.trim() || "";
+  if (!hash) return null;
+
+  const isValid = await bcrypt.compare(password, hash);
+  return isValid ? { email: row[0] } : null;
+}
+
+export interface LoginLogEntry {
+  gmail: string;
+  vendor_name: string;
+  role: string;
+  result: "登入成功" | "拒絕存取";
+  reason: string;
+}
+
+export async function appendLoginLog(entry: LoginLogEntry): Promise<void> {
+  try {
+    const sheets = getSheetsClient();
+    const now = new Intl.DateTimeFormat("zh-TW", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: "Asia/Taipei",
+    }).format(new Date());
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "登入記錄!A:F",
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: {
+        values: [[
+          now,
+          entry.gmail,
+          entry.vendor_name,
+          entry.role,
+          entry.result,
+          entry.reason,
+        ]],
+      },
+    });
+  } catch (err) {
+    // 寫入失敗不影響主流程
+    console.error("appendLoginLog error:", err);
+  }
 }
 
 export async function getApiUrl(): Promise<string> {
