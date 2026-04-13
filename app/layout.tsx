@@ -4,8 +4,8 @@ import SessionProvider from "@/components/SessionProvider";
 import { auth } from "@/auth";
 
 export const metadata: Metadata = {
-  title: "SME 廠商入口",
-  description: "中小企業廠商課程查詢入口網站",
+  title: "2026 SME 開課廠商查詢",
+  description: "2026中小企業開課廠商查詢入口",
 };
 
 export default async function RootLayout({
