@@ -143,7 +143,7 @@ export async function appendLoginLog(entry: LoginLogEntry): Promise<void> {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "登入記錄!A:F",
+      range: "登入紀錄!A:F",
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {

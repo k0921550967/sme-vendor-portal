@@ -72,7 +72,7 @@ interface ColumnDef {
 const COLUMNS: ColumnDef[] = [
   { key: "class_name",        label: "班級名稱",   align: "left" },
   { key: "student_count",     label: "學生人數",   align: "center" },
-  { key: "category",          label: "類別",       align: "left" },
+  { key: "category",          label: "類別",       align: "center" },
   { key: "start_hour",        label: "開課時間",   align: "left" },
   { key: "duration",          label: "時數(小時)", align: "center" },
   { key: "school_name",       label: "開課單位",   align: "left" },
