@@ -34,6 +34,16 @@ export default async function HomePage() {
           </p>
         </div>
 
+        {/* 帳號密碼登入（Client Component） */}
+        <CredentialsLoginForm />
+
+        {/* 分隔線 */}
+        <div className="w-full flex items-center gap-3">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400">或使用Google帳號登入</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
         {/* Google 登入 */}
         <form
           className="w-full"
@@ -68,15 +78,7 @@ export default async function HomePage() {
           </button>
         </form>
 
-        {/* 分隔線 */}
-        <div className="w-full flex items-center gap-3">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400">或使用帳號密碼</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
 
-        {/* 帳號密碼登入（Client Component） */}
-        <CredentialsLoginForm />
 
         <p className="text-xs text-gray-400">僅限授權廠商帳號使用</p>
       </div>

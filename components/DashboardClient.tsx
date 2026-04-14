@@ -20,6 +20,118 @@ function formatDateTime(iso: string): string {
   }
 }
 
+function formatDateRange(iso: string, durationHours: number): { date: string; timeRange: string } {
+  if (!iso) return { date: "-", timeRange: "" };
+  try {
+    const start = new Date(iso);
+    const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+
+    const dateFmt = new Intl.DateTimeFormat("zh-TW", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "Asia/Taipei",
+    });
+    const timeFmt = new Intl.DateTimeFormat("zh-TW", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Taipei",
+    });
+
+    const date = dateFmt.format(start).replace(/\//g, "/");
+    const startTime = timeFmt.format(start);
+    const endTime = timeFmt.format(end);
+
+    return { date, timeRange: `${startTime} - ${endTime}` };
+  } catch {
+    return { date: iso, timeRange: "" };
+  }
+}
+
+// ──────────────────────────────────────────────
+// 欄位順序設定：調整陣列順序即可改變表格欄位排列
+// student_count 欄會依使用者角色自動顯示/隱藏
+// ──────────────────────────────────────────────
+type ColumnKey =
+  | "class_name"
+  | "school_name"
+  | "schedule_address"
+  | "start_hour"
+  | "duration"
+  | "teachers"
+  | "category"
+  | "student_count";
+
+interface ColumnDef {
+  key: ColumnKey;
+  label: string;
+  align: "left" | "center";
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: "class_name",        label: "班級名稱",   align: "left" },
+  { key: "student_count",     label: "學生人數",   align: "center" },
+  { key: "category",          label: "類別",       align: "left" },
+  { key: "start_hour",        label: "開課時間",   align: "left" },
+  { key: "duration",          label: "時數(小時)", align: "center" },
+  { key: "school_name",       label: "開課單位",   align: "left" },
+  { key: "schedule_address",  label: "地址",       align: "left" },
+  { key: "teachers",          label: "教師",       align: "left" },
+];
+
+function renderCell(
+  key: ColumnKey,
+  course: import("@/types").CourseRecord,
+  categoryColorMap: Record<string, string>,
+  mainUpdatedAt: string | null
+): React.ReactNode {
+  switch (key) {
+    case "class_name":
+      return <span className="font-medium text-gray-900 whitespace-nowrap">{course.class_name || "-"}</span>;
+    case "school_name":
+      return course.school_name.length > 0 ? (
+        <div className="flex flex-col gap-0.5 max-w-xs">
+          {course.school_name.map((s, i) => <span key={i} className="text-xs">{s}</span>)}
+        </div>
+      ) : "-";
+    case "schedule_address":
+      return <span className="text-xs max-w-xs">{course.schedule_address || "-"}</span>;
+    case "start_hour": {
+      const { date, timeRange } = formatDateRange(course.start_hour, course.duration);
+      return (
+        <div className="flex flex-col gap-0.5 whitespace-nowrap text-xs">
+          <span>{date}</span>
+          {timeRange && <span className="text-gray-600">{timeRange}</span>}
+        </div>
+      );
+    }
+    case "duration":
+      return course.duration || "-";
+    case "teachers":
+      return course.teachers.length > 0 ? course.teachers.join("、") : "-";
+    case "category":
+      return (
+        <span className={`inline-block text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+          categoryColorMap[course.category] ?? "bg-gray-100 border border-gray-200 text-gray-600"
+        }`}>
+          {course.category || "-"}
+        </span>
+      );
+    case "student_count":
+      return (
+        <>
+          {course.student_count ?? "-"}
+          {course.updated_at && course.updated_at !== mainUpdatedAt && (
+            <div className="text-gray-400 font-normal mt-0.5" style={{ fontSize: "10px" }}>
+              更新：{formatDateTime(course.updated_at)}
+            </div>
+          )}
+        </>
+      );
+  }
+}
+
 const CATEGORY_COLORS = [
   "bg-blue-50 border border-blue-200 text-blue-700",
   "bg-green-50 border border-green-200 text-green-700",
@@ -141,39 +253,27 @@ export default function DashboardClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-brand-700 text-white">
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                  班級名稱
-                </th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                  開課單位
-                </th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                  地址
-                </th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                  開課時間
-                </th>
-                <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">
-                  時數(小時)
-                </th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                  教師
-                </th>
-                <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                  類別
-                </th>
-                {showStudentCount && (
-                  <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">
-                    學生人數
+                {COLUMNS.filter(
+                  (col) => col.key !== "student_count" || showStudentCount
+                ).map((col) => (
+                  <th
+                    key={col.key}
+                    className={`px-4 py-3 font-semibold whitespace-nowrap text-${col.align}`}
+                  >
+                    {col.label}
                   </th>
-                )}
+                ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={showStudentCount ? 8 : 7}
+                    colSpan={
+                      COLUMNS.filter(
+                        (col) => col.key !== "student_count" || showStudentCount
+                      ).length
+                    }
                     className="px-4 py-12 text-center text-gray-400"
                   >
                     {query ? "找不到符合的課程" : "目前沒有課程資料"}
@@ -187,57 +287,16 @@ export default function DashboardClient({
                       idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                     }`}
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
-                      {course.class_name || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 max-w-xs">
-                      {course.school_name.length > 0 ? (
-                        <div className="flex flex-col gap-0.5">
-                          {course.school_name.map((s, i) => (
-                            <span key={i} className="text-xs">
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 max-w-xs">
-                      <span className="text-xs">{course.schedule_address || "-"}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                      {formatDateTime(course.start_hour)}
-                    </td>
-                    <td className="px-4 py-3 text-center text-gray-600">
-                      {course.duration || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {course.teachers.length > 0
-                        ? course.teachers.join("、")
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
-                          categoryColorMap[course.category] ??
-                          "bg-gray-100 border border-gray-200 text-gray-600"
-                        }`}
+                    {COLUMNS.filter(
+                      (col) => col.key !== "student_count" || showStudentCount
+                    ).map((col) => (
+                      <td
+                        key={col.key}
+                        className={`px-4 py-3 text-${col.align} text-gray-600`}
                       >
-                        {course.category || "-"}
-                      </span>
-                    </td>
-                    {showStudentCount && (
-                      <td className="px-4 py-3 text-center text-gray-600 font-medium">
-                        {course.student_count ?? "-"}
-                        {course.updated_at &&
-                          course.updated_at !== mainUpdatedAt && (
-                            <div className="text-gray-400 font-normal mt-0.5" style={{ fontSize: "10px" }}>
-                              更新：{formatDateTime(course.updated_at)}
-                            </div>
-                          )}
+                        {renderCell(col.key, course, categoryColorMap, mainUpdatedAt)}
                       </td>
-                    )}
+                    ))}
                   </tr>
                 ))
               )}
