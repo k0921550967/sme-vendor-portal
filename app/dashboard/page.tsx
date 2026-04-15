@@ -54,24 +54,25 @@ export default async function DashboardPage() {
     allowed_categories: authRecord.allowed_categories,
   };
 
-  // 讀取請求標頭取得 IP 與裝置資訊
-  const reqHeaders = await headers();
-  const ip =
-    reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    reqHeaders.get("x-real-ip") ??
-    "-";
-  const userAgent = reqHeaders.get("user-agent") ?? undefined;
+  // 只在剛登入時（isNewLogin）寫入記錄，避免 refresh 重複寫入
+  if (session.isNewLogin) {
+    const reqHeaders = await headers();
+    const ip =
+      reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      reqHeaders.get("x-real-ip") ??
+      "-";
+    const userAgent = reqHeaders.get("user-agent") ?? undefined;
 
-  // 寫入登入記錄（非同步，不阻塞頁面渲染）
-  void appendLoginLog({
-    gmail: email,
-    vendor_name: authRecord.vendor_name,
-    role: authRecord.role,
-    result: "登入成功",
-    reason: "正常",
-    ip,
-    user_agent: userAgent,
-  });
+    void appendLoginLog({
+      gmail: email,
+      vendor_name: authRecord.vendor_name,
+      role: authRecord.role,
+      result: "登入成功",
+      reason: "正常",
+      ip,
+      user_agent: userAgent,
+    });
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

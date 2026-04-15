@@ -2,6 +2,18 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 
+// 擴充 NextAuth 型別，讓 session/token 支援 isNewLogin 旗標
+declare module "next-auth" {
+  interface Session {
+    isNewLogin?: boolean;
+  }
+}
+declare module "next-auth/jwt" {
+  interface JWT {
+    isNewLogin?: boolean;
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
@@ -38,11 +50,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token.email) {
         session.user.email = token.email;
       }
+      // 將「全新登入」旗標傳入 session
+      session.isNewLogin = token.isNewLogin ?? false;
       return session;
     },
     async jwt({ token, account }) {
       if (account) {
+        // account 只在剛登入時存在，後續 refresh 為 undefined
         token.accessToken = account.access_token;
+        token.isNewLogin = true;
+      } else {
+        // 第二次以後（頁面 refresh）清除旗標
+        token.isNewLogin = false;
       }
       return token;
     },
