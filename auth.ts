@@ -2,15 +2,10 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 
-// 擴充 NextAuth 型別，讓 session/token 支援 isNewLogin 旗標
+// 擴充 NextAuth Session 型別，支援 loginTime 時間戳記
 declare module "next-auth" {
   interface Session {
-    isNewLogin?: boolean;
-  }
-}
-declare module "next-auth/jwt" {
-  interface JWT {
-    isNewLogin?: boolean;
+    loginTime?: number;
   }
 }
 
@@ -50,19 +45,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token.email) {
         session.user.email = token.email;
       }
-      // 將「全新登入」旗標傳入 session
-      session.isNewLogin = token.isNewLogin ?? false;
+      // 將登入時間傳入 session
+      session.loginTime = token.loginTime as number | undefined;
       return session;
     },
     async jwt({ token, account }) {
       if (account) {
-        // account 只在剛登入時存在，後續 refresh 為 undefined
+        // account 只在剛登入時存在，記錄此時的時間戳記（毫秒）
         token.accessToken = account.access_token;
-        token.isNewLogin = true;
-      } else {
-        // 第二次以後（頁面 refresh）清除旗標
-        token.isNewLogin = false;
+        token.loginTime = Date.now();
       }
+      // 不清除 loginTime，保留在 token 中供後續比對
       return token;
     },
   },

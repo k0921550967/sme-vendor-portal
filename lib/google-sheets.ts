@@ -155,6 +155,8 @@ function parseUserAgent(ua: string): string {
 export async function appendLoginLog(entry: LoginLogEntry): Promise<void> {
   try {
     const sheets = getSheetsClient();
+
+    // 24 小時制時間
     const now = new Intl.DateTimeFormat("zh-TW", {
       year: "numeric",
       month: "2-digit",
@@ -162,26 +164,56 @@ export async function appendLoginLog(entry: LoginLogEntry): Promise<void> {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
+      hour12: false,
       timeZone: "Asia/Taipei",
     }).format(new Date());
 
-    await sheets.spreadsheets.values.append({
+    const row = [
+      now,
+      entry.gmail,
+      entry.vendor_name,
+      entry.role,
+      entry.result,
+      entry.reason,
+      entry.ip ?? "-",
+      entry.user_agent ? parseUserAgent(entry.user_agent) : "-",
+    ];
+
+    // 取得「登入紀錄」的 sheetId，才能用 insertDimension 插入首列
+    const meta = await sheets.spreadsheets.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "登入紀錄!A:H",
-      valueInputOption: "RAW",
-      insertDataOption: "INSERT_ROWS",
+      fields: "sheets(properties(sheetId,title))",
+    });
+    const sheetId = meta.data.sheets?.find(
+      (s) => s.properties?.title === "登入紀錄"
+    )?.properties?.sheetId;
+
+    if (sheetId == null) throw new Error("找不到「登入紀錄」Sheet");
+
+    // 在標題列之後（index 1）插入一列空白列，資料往下推
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
       requestBody: {
-        values: [[
-          now,
-          entry.gmail,
-          entry.vendor_name,
-          entry.role,
-          entry.result,
-          entry.reason,
-          entry.ip ?? "-",
-          entry.user_agent ? parseUserAgent(entry.user_agent) : "-",
-        ]],
+        requests: [{
+          insertDimension: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: 1, // 0-based，= 第 2 列（標題下方）
+              endIndex: 2,
+            },
+            inheritFromBefore: false,
+          },
+        }],
       },
+    });
+
+    // 寫入資料到剛插入的空白列
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "登入紀錄!A2:H2",
+      valueInputOption: "RAW",
+      requestBody: { values: [row] },
     });
   } catch (err) {
     // 寫入失敗不影響主流程
