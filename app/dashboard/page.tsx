@@ -54,9 +54,9 @@ export default async function DashboardPage() {
     allowed_categories: authRecord.allowed_categories,
   };
 
-  // 登入後 60 秒內視為全新登入，寫入記錄；超過則為一般 refresh，跳過
+  // 登入後 10 秒內視為全新登入，寫入記錄；超過則為一般 refresh，跳過
   const loginAge = session.loginTime ? Date.now() - session.loginTime : Infinity;
-  if (loginAge < 60_000) {
+  if (loginAge < 10_000) {
     const reqHeaders = await headers();
     const ip =
       reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -64,7 +64,8 @@ export default async function DashboardPage() {
       "-";
     const userAgent = reqHeaders.get("user-agent") ?? undefined;
 
-    void appendLoginLog({
+    // await 確保 Vercel function 不會在寫入前被終止
+    await appendLoginLog({
       gmail: email,
       vendor_name: authRecord.vendor_name,
       role: authRecord.role,

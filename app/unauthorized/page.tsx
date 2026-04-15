@@ -29,7 +29,7 @@ export default async function UnauthorizedPage({
   // 取得登入者 email 寫入拒絕記錄
   const session = await auth().catch(() => null);
   if (session?.user?.email) {
-    void appendLoginLog({
+    await appendLoginLog({
       gmail: session.user.email,
       vendor_name: "-",
       role: "-",
