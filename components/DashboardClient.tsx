@@ -67,11 +67,12 @@ interface ColumnDef {
   key: ColumnKey;
   label: string;
   align: "left" | "center";
+  viewerHidden?: boolean; // true = viewer 看不到此欄，預設 false（全部可見）
 }
 
 const COLUMNS: ColumnDef[] = [
   { key: "class_name",        label: "班級名稱",   align: "left" },
-  { key: "student_count",     label: "學生人數",   align: "center" },
+  { key: "student_count",     label: "學生人數",   align: "center" },  // 加 viewerHidden: true 可對 viewer 隱藏
   { key: "category",          label: "類別",       align: "center" },
   { key: "start_hour",        label: "開課時間",   align: "left" },
   { key: "duration",          label: "時數(小時)", align: "center" },
@@ -144,10 +145,10 @@ const CATEGORY_COLORS = [
 
 export default function DashboardClient({
   courses,
-  showStudentCount,
+  isViewer,
 }: {
   courses: CourseRecord[];
-  showStudentCount: boolean;
+  isViewer: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -254,7 +255,7 @@ export default function DashboardClient({
             <thead>
               <tr className="bg-brand-700 text-white">
                 {COLUMNS.filter(
-                  (col) => col.key !== "student_count" || showStudentCount
+                  (col) => !(col.viewerHidden && isViewer)
                 ).map((col) => (
                   <th
                     key={col.key}
@@ -270,9 +271,7 @@ export default function DashboardClient({
                 <tr>
                   <td
                     colSpan={
-                      COLUMNS.filter(
-                        (col) => col.key !== "student_count" || showStudentCount
-                      ).length
+                      COLUMNS.filter((col) => !(col.viewerHidden && isViewer)).length
                     }
                     className="px-4 py-12 text-center text-gray-400"
                   >
@@ -288,7 +287,7 @@ export default function DashboardClient({
                     }`}
                   >
                     {COLUMNS.filter(
-                      (col) => col.key !== "student_count" || showStudentCount
+                      (col) => !(col.viewerHidden && isViewer)
                     ).map((col) => (
                       <td
                         key={col.key}

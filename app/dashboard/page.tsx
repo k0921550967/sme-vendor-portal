@@ -44,8 +44,7 @@ export default async function DashboardPage() {
       matchFilter(c.teachers, authRecord.allowed_teachers)
   );
 
-  // viewer 隱藏 student_count
-  const showStudentCount = authRecord.role !== "viewer";
+  const isViewer = authRecord.role === "viewer";
 
   const userInfo = {
     email,
@@ -82,7 +81,7 @@ export default async function DashboardPage() {
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-4 py-6">
         <DashboardClient
           courses={filteredCourses}
-          showStudentCount={showStudentCount}
+          isViewer={isViewer}
         />
       </main>
     </div>
