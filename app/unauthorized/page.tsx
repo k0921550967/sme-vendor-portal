@@ -1,5 +1,6 @@
 import { signOut } from "@/auth";
 import { auth } from "@/auth";
+import { headers } from "next/headers";
 import { appendLoginLog } from "@/lib/google-sheets";
 
 const REASON_LABEL: Record<string, string> = {
@@ -17,6 +18,14 @@ export default async function UnauthorizedPage({
   const reason = params.reason ?? "unknown";
   const reasonLabel = REASON_LABEL[reason] ?? reason;
 
+  // 讀取請求標頭取得 IP 與裝置資訊
+  const reqHeaders = await headers();
+  const ip =
+    reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    reqHeaders.get("x-real-ip") ??
+    "-";
+  const userAgent = reqHeaders.get("user-agent") ?? undefined;
+
   // 取得登入者 email 寫入拒絕記錄
   const session = await auth().catch(() => null);
   if (session?.user?.email) {
@@ -26,6 +35,8 @@ export default async function UnauthorizedPage({
       role: "-",
       result: "拒絕存取",
       reason: reasonLabel,
+      ip,
+      user_agent: userAgent,
     });
   }
 

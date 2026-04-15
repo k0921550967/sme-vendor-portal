@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getAuthRecord, getCourseData, appendLoginLog } from "@/lib/google-sheets";
 import { CourseRecord } from "@/types";
 import Header from "@/components/Header";
@@ -53,6 +54,14 @@ export default async function DashboardPage() {
     allowed_categories: authRecord.allowed_categories,
   };
 
+  // 讀取請求標頭取得 IP 與裝置資訊
+  const reqHeaders = await headers();
+  const ip =
+    reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    reqHeaders.get("x-real-ip") ??
+    "-";
+  const userAgent = reqHeaders.get("user-agent") ?? undefined;
+
   // 寫入登入記錄（非同步，不阻塞頁面渲染）
   void appendLoginLog({
     gmail: email,
@@ -60,6 +69,8 @@ export default async function DashboardPage() {
     role: authRecord.role,
     result: "登入成功",
     reason: "正常",
+    ip,
+    user_agent: userAgent,
   });
 
   return (

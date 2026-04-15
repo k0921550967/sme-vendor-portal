@@ -126,6 +126,30 @@ export interface LoginLogEntry {
   role: string;
   result: "登入成功" | "拒絕存取";
   reason: string;
+  ip?: string;
+  user_agent?: string;
+}
+
+/** 從 User-Agent 字串提取可讀的裝置/瀏覽器摘要 */
+function parseUserAgent(ua: string): string {
+  if (!ua) return "未知";
+  const browser =
+    /Edg\//.test(ua) ? "Edge" :
+    /OPR\/|Opera/.test(ua) ? "Opera" :
+    /Chrome\//.test(ua) ? "Chrome" :
+    /Firefox\//.test(ua) ? "Firefox" :
+    /Safari\//.test(ua) ? "Safari" :
+    "其他瀏覽器";
+
+  const os =
+    /Android/.test(ua) ? "Android" :
+    /iPhone|iPad/.test(ua) ? "iOS" :
+    /Windows NT/.test(ua) ? "Windows" :
+    /Mac OS X/.test(ua) ? "macOS" :
+    /Linux/.test(ua) ? "Linux" :
+    "其他系統";
+
+  return `${browser} / ${os}`;
 }
 
 export async function appendLoginLog(entry: LoginLogEntry): Promise<void> {
@@ -143,7 +167,7 @@ export async function appendLoginLog(entry: LoginLogEntry): Promise<void> {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "登入紀錄!A:F",
+      range: "登入紀錄!A:H",
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: {
@@ -154,6 +178,8 @@ export async function appendLoginLog(entry: LoginLogEntry): Promise<void> {
           entry.role,
           entry.result,
           entry.reason,
+          entry.ip ?? "-",
+          entry.user_agent ? parseUserAgent(entry.user_agent) : "-",
         ]],
       },
     });

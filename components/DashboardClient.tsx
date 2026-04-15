@@ -23,27 +23,27 @@ function formatDateTime(iso: string): string {
 function formatDateRange(iso: string, durationHours: number): { date: string; timeRange: string } {
   if (!iso) return { date: "-", timeRange: "" };
   try {
-    const start = new Date(iso);
-    const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+    // 直接解析字串數字，避免 Date 物件將 UTC "Z" 轉成本地時區
+    // e.g. "2026-05-27T14:00:00.000Z" → 當作台灣時間 14:00，不做 +8 轉換
+    const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!match) return { date: iso, timeRange: "" };
 
-    const dateFmt = new Intl.DateTimeFormat("zh-TW", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone: "Asia/Taipei",
-    });
-    const timeFmt = new Intl.DateTimeFormat("zh-TW", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Taipei",
-    });
+    const [, year, month, day, hourStr, minStr] = match;
+    const date = `${year}/${month}/${day}`;
 
-    const date = dateFmt.format(start).replace(/\//g, "/");
-    const startTime = timeFmt.format(start);
-    const endTime = timeFmt.format(end);
+    const startMin = parseInt(hourStr) * 60 + parseInt(minStr);
+    const endMin = startMin + Math.round(durationHours * 60);
 
-    return { date, timeRange: `${startTime} - ${endTime}` };
+    const fmt = (totalMin: number) => {
+      const h = Math.floor(totalMin / 60) % 24;
+      const m = totalMin % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    };
+
+    return {
+      date,
+      timeRange: durationHours > 0 ? `${fmt(startMin)} - ${fmt(endMin)}` : fmt(startMin),
+    };
   } catch {
     return { date: iso, timeRange: "" };
   }
