@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CourseRecord } from "@/types";
 import StatsCards from "./StatsCards";
 
@@ -50,6 +50,42 @@ function formatDateRange(iso: string, durationHours: number): { date: string; ti
 }
 
 // ──────────────────────────────────────────────
+// 課程狀態判斷
+// start_hour 儲存格式為台灣時間但帶 Z 後綴，視為本地時間直接比較
+// fakeNow = Date.now() + 8h，讓「現在」與儲存值同基準
+// ──────────────────────────────────────────────
+type CourseStatus = "upcoming" | "ongoing" | "ended" | "unknown";
+
+function getCourseStatus(startIso: string, durationHours: number): CourseStatus {
+  if (!startIso) return "unknown";
+  try {
+    const startEpoch = new Date(startIso).getTime();
+    if (isNaN(startEpoch)) return "unknown";
+    const fakeNow = Date.now() + 8 * 3600 * 1000;
+    const endEpoch = startEpoch + Math.round(durationHours * 3600 * 1000);
+    if (fakeNow < startEpoch) return "upcoming";
+    if (fakeNow < endEpoch) return "ongoing";
+    return "ended";
+  } catch {
+    return "unknown";
+  }
+}
+
+const STATUS_LABEL: Record<CourseStatus, string | null> = {
+  upcoming: "尚未開課",
+  ongoing:  "進行中",
+  ended:    "已結束",
+  unknown:  null,
+};
+
+const STATUS_COLOR: Record<CourseStatus, string> = {
+  upcoming: "text-blue-500",
+  ongoing:  "text-green-600",
+  ended:    "text-gray-400",
+  unknown:  "text-gray-400",
+};
+
+// ──────────────────────────────────────────────
 // 欄位順序設定：調整陣列順序即可改變表格欄位排列
 // student_count 欄會依使用者角色自動顯示/隱藏
 // ──────────────────────────────────────────────
@@ -68,12 +104,13 @@ interface ColumnDef {
   label: string;
   align: "left" | "center";
   viewerHidden?: boolean; // true = viewer 看不到此欄，預設 false（全部可見）
+  hidden?: boolean;       // true = 所有人都不顯示此欄
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: "class_name",        label: "班級名稱",   align: "left" },
+  { key: "class_name",        label: "班級名稱",   align: "center" },
   { key: "student_count",     label: "學生人數",   align: "center" },  // 加 viewerHidden: true 可對 viewer 隱藏
-  { key: "category",          label: "類別",       align: "center" },
+  { key: "category",          label: "類別",       align: "center", hidden: true },
   { key: "start_hour",        label: "開課時間",   align: "left" },
   { key: "duration",          label: "時數(小時)", align: "center" },
   { key: "school_name",       label: "開課單位",   align: "left" },
@@ -88,8 +125,24 @@ function renderCell(
   mainUpdatedAt: string | null
 ): React.ReactNode {
   switch (key) {
-    case "class_name":
-      return <span className="font-medium text-gray-900 whitespace-nowrap">{course.class_name || "-"}</span>;
+    case "class_name": {
+      const status = getCourseStatus(course.start_hour, course.duration);
+      const label = STATUS_LABEL[status];
+      return (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span className={`font-medium px-2 py-0.5 rounded-full ${
+            categoryColorMap[course.category] ?? "bg-gray-100 border border-gray-200 text-gray-600"
+          }`}>
+            {course.class_name || "-"}
+          </span>
+          {label && (
+            <span style={{ fontSize: "11px" }} className={`font-medium ${STATUS_COLOR[status]}`}>
+              {label}
+            </span>
+          )}
+        </span>
+      );
+    }
     case "school_name":
       return course.school_name.length > 0 ? (
         <div className="flex flex-col gap-0.5 max-w-xs">
@@ -152,6 +205,12 @@ export default function DashboardClient({
 }) {
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [statusTab, setStatusTab] = useState<"upcoming" | "ongoing" | "ended" | "all">("all");
+
+  // 每次瀏覽器 session 開始（包含關閉後重開自動登入）都記錄一筆登入紀錄
+  useEffect(() => {
+    fetch("/api/record-login", { method: "POST" }).catch(() => {});
+  }, []);
 
   const categoryColorMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -173,8 +232,18 @@ export default function DashboardClient({
     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }, [courses]);
 
+  const tabCounts = useMemo(() => ({
+    upcoming: courses.filter((c) => getCourseStatus(c.start_hour, c.duration) === "upcoming").length,
+    ongoing:  courses.filter((c) => getCourseStatus(c.start_hour, c.duration) === "ongoing").length,
+    ended:    courses.filter((c) => getCourseStatus(c.start_hour, c.duration) === "ended").length,
+    all:      courses.length,
+  }), [courses]);
+
   const filtered = useMemo(() => {
     let result = courses;
+    if (statusTab !== "all") {
+      result = result.filter((c) => getCourseStatus(c.start_hour, c.duration) === statusTab);
+    }
     if (selectedCategory) {
       result = result.filter((c) => c.category === selectedCategory);
     }
@@ -189,7 +258,7 @@ export default function DashboardClient({
       );
     }
     return result;
-  }, [courses, query, selectedCategory]);
+  }, [courses, query, selectedCategory, statusTab]);
 
   return (
     <>
@@ -199,6 +268,36 @@ export default function DashboardClient({
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
       />
+
+      {/* Status Tabs */}
+      <div className="mb-4 flex gap-0 border-b border-gray-200">
+        {(
+          [
+            { key: "all",     label: "全部" },
+            { key: "ended",   label: "已結束" },
+            { key: "ongoing", label: "進行中" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              statusTab === tab.key
+                ? "border-brand-600 text-brand-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {tab.label}
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+              statusTab === tab.key
+                ? "bg-brand-100 text-brand-700"
+                : "bg-gray-100 text-gray-500"
+            }`}>
+              {tabCounts[tab.key]}
+            </span>
+          </button>
+        ))}
+      </div>
 
       {/* Search + 更新時間同一列 */}
       <div className="mb-4 flex items-center gap-3">
@@ -255,7 +354,7 @@ export default function DashboardClient({
             <thead>
               <tr className="bg-brand-700 text-white">
                 {COLUMNS.filter(
-                  (col) => !(col.viewerHidden && isViewer)
+                  (col) => !col.hidden && !(col.viewerHidden && isViewer)
                 ).map((col) => (
                   <th
                     key={col.key}
@@ -271,7 +370,7 @@ export default function DashboardClient({
                 <tr>
                   <td
                     colSpan={
-                      COLUMNS.filter((col) => !(col.viewerHidden && isViewer)).length
+                      COLUMNS.filter((col) => !col.hidden && !(col.viewerHidden && isViewer)).length
                     }
                     className="px-4 py-12 text-center text-gray-400"
                   >
@@ -287,7 +386,7 @@ export default function DashboardClient({
                     }`}
                   >
                     {COLUMNS.filter(
-                      (col) => !(col.viewerHidden && isViewer)
+                      (col) => !col.hidden && !(col.viewerHidden && isViewer)
                     ).map((col) => (
                       <td
                         key={col.key}

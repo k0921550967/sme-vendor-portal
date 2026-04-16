@@ -1,7 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { getAuthRecord, getCourseData, appendLoginLog } from "@/lib/google-sheets";
+import { getAuthRecord, getCourseData } from "@/lib/google-sheets";
 import { CourseRecord } from "@/types";
 import Header from "@/components/Header";
 import DashboardClient from "@/components/DashboardClient";
@@ -52,28 +51,6 @@ export default async function DashboardPage() {
     role: authRecord.role,
     allowed_categories: authRecord.allowed_categories,
   };
-
-  // 登入後 10 秒內視為全新登入，寫入記錄；超過則為一般 refresh，跳過
-  const loginAge = session.loginTime ? Date.now() - session.loginTime : Infinity;
-  if (loginAge < 10_000) {
-    const reqHeaders = await headers();
-    const ip =
-      reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      reqHeaders.get("x-real-ip") ??
-      "-";
-    const userAgent = reqHeaders.get("user-agent") ?? undefined;
-
-    // await 確保 Vercel function 不會在寫入前被終止
-    await appendLoginLog({
-      gmail: email,
-      vendor_name: authRecord.vendor_name,
-      role: authRecord.role,
-      result: "登入成功",
-      reason: "正常",
-      ip,
-      user_agent: userAgent,
-    });
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
