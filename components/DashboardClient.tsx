@@ -86,6 +86,27 @@ const STATUS_COLOR: Record<CourseStatus, string> = {
 };
 
 // ──────────────────────────────────────────────
+// 字體大小設定：統一控制所有文字大小
+// 調整此處即可全域變更，不需逐一尋找
+//
+// ──────────────────────────────────────────────
+// Tailwind 字體大小對照：text-sm=14px / text-base=16px / text-lg=18px / text-xl=20px / text-2xl=24px
+const TABLE_FONT = {
+  tableBase:   "text-xl",     // 表格主體（表頭 + 資料列基準）          20px
+  cellSmall:   "text-lg",     // 開課單位、地址、開課時間                18px
+  badge:       "text-lg",     // 類別 badge                             18px
+  statusLabel: "16px",        // 課程狀態小字（尚未開課/進行中/已結束）  16px
+  updateNote:  "15px",        // 學生人數下方更新時間小字                15px
+  tab:         "text-xl",     // 狀態標籤頁文字                         20px
+  tabBadge:    "text-lg",     // 標籤頁右側數字                         18px
+  search:      "text-xl",     // 搜尋框輸入文字                         20px
+  filterTag:   "text-lg",     // 已選類別標籤                           18px
+  filterCount: "text-xl",     // 篩選結果數                             20px
+  updateTime:  "text-lg",     // 右上角資料更新時間                     18px
+  footer:      "text-lg",     // 底部「共 N 筆」                        18px
+};
+
+// ──────────────────────────────────────────────
 // 欄位順序設定：調整陣列順序即可改變表格欄位排列
 // student_count 欄會依使用者角色自動顯示/隱藏
 // ──────────────────────────────────────────────
@@ -136,7 +157,7 @@ function renderCell(
             {course.class_name || "-"}
           </span>
           {label && (
-            <span style={{ fontSize: "11px" }} className={`font-medium ${STATUS_COLOR[status]}`}>
+            <span style={{ fontSize: TABLE_FONT.statusLabel }} className={`font-medium ${STATUS_COLOR[status]}`}>
               {label}
             </span>
           )}
@@ -146,15 +167,15 @@ function renderCell(
     case "school_name":
       return course.school_name.length > 0 ? (
         <div className="flex flex-col gap-0.5 max-w-xs">
-          {course.school_name.map((s, i) => <span key={i} className="text-xs">{s}</span>)}
+          {course.school_name.map((s, i) => <span key={i} className={TABLE_FONT.cellSmall}>{s}</span>)}
         </div>
       ) : "-";
     case "schedule_address":
-      return <span className="text-xs max-w-xs">{course.schedule_address || "-"}</span>;
+      return <span className={`${TABLE_FONT.cellSmall} max-w-xs`}>{course.schedule_address || "-"}</span>;
     case "start_hour": {
       const { date, timeRange } = formatDateRange(course.start_hour, course.duration);
       return (
-        <div className="flex flex-col gap-0.5 whitespace-nowrap text-xs">
+        <div className={`flex flex-col gap-0.5 whitespace-nowrap ${TABLE_FONT.cellSmall}`}>
           <span>{date}</span>
           {timeRange && <span className="text-gray-600">{timeRange}</span>}
         </div>
@@ -166,7 +187,7 @@ function renderCell(
       return course.teachers.length > 0 ? course.teachers.join("、") : "-";
     case "category":
       return (
-        <span className={`inline-block text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+        <span className={`inline-block ${TABLE_FONT.badge} px-2 py-0.5 rounded-full whitespace-nowrap ${
           categoryColorMap[course.category] ?? "bg-gray-100 border border-gray-200 text-gray-600"
         }`}>
           {course.category || "-"}
@@ -177,7 +198,7 @@ function renderCell(
         <>
           {course.student_count ?? "-"}
           {course.updated_at && course.updated_at !== mainUpdatedAt && (
-            <div className="text-gray-400 font-normal mt-0.5" style={{ fontSize: "10px" }}>
+            <div className="text-gray-400 font-normal mt-0.5" style={{ fontSize: TABLE_FONT.updateNote }}>
               更新：{formatDateTime(course.updated_at)}
             </div>
           )}
@@ -281,14 +302,14 @@ export default function DashboardClient({
           <button
             key={tab.key}
             onClick={() => setStatusTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            className={`px-4 py-2 ${TABLE_FONT.tab} font-medium border-b-2 transition-colors whitespace-nowrap ${
               statusTab === tab.key
                 ? "border-brand-600 text-brand-700"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             {tab.label}
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+            <span className={`ml-1.5 ${TABLE_FONT.tabBadge} px-1.5 py-0.5 rounded-full ${
               statusTab === tab.key
                 ? "bg-brand-100 text-brand-700"
                 : "bg-gray-100 text-gray-500"
@@ -320,25 +341,25 @@ export default function DashboardClient({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜尋班級名稱、開課單位、類別、地址..."
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-sm"
+            className={`w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent ${TABLE_FONT.search}`}
           />
         </div>
         {selectedCategory && (
           <button
             onClick={() => setSelectedCategory(null)}
-            className="flex items-center gap-1 text-xs bg-brand-100 text-brand-700 border border-brand-200 px-2 py-1 rounded-full hover:bg-brand-200 transition-colors"
+            className={`flex items-center gap-1 ${TABLE_FONT.filterTag} bg-brand-100 text-brand-700 border border-brand-200 px-2 py-1 rounded-full hover:bg-brand-200 transition-colors`}
           >
             {selectedCategory}
             <span className="text-brand-400 font-bold">×</span>
           </button>
         )}
         {(query || selectedCategory) && (
-          <span className="text-sm text-gray-500">
+          <span className={`${TABLE_FONT.filterCount} text-gray-500`}>
             找到 <strong>{filtered.length}</strong> 筆
           </span>
         )}
         {mainUpdatedAt && (
-          <span className="ml-auto text-xs text-gray-400 whitespace-nowrap">
+          <span className={`ml-auto ${TABLE_FONT.updateTime} text-gray-400 whitespace-nowrap`}>
             資料更新時間：
             <span className="text-gray-500 font-medium">
               {formatDateTime(mainUpdatedAt)}
@@ -350,7 +371,7 @@ export default function DashboardClient({
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin">
-          <table className="w-full text-sm">
+          <table className={`w-full ${TABLE_FONT.tableBase}`}>
             <thead>
               <tr className="bg-brand-700 text-white">
                 {COLUMNS.filter(
@@ -402,7 +423,7 @@ export default function DashboardClient({
           </table>
         </div>
         {filtered.length > 0 && (
-          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 text-xs text-gray-400 text-right">
+          <div className={`px-4 py-2 border-t border-gray-100 bg-gray-50 ${TABLE_FONT.footer} text-gray-400 text-right`}>
             共 {filtered.length} 筆{query && `（篩選自 ${courses.length} 筆）`}
           </div>
         )}
