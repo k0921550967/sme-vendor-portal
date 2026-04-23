@@ -1,5 +1,9 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import authConfig from "./auth.config";
 import { NextResponse } from "next/server";
+
+// middleware 只用 Edge-safe 的 authConfig，避免把 googleapis / bcryptjs 帶進 Edge Runtime
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl } = req;

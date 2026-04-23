@@ -1,20 +1,13 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import authConfig from "./auth.config";
 
-// 擴充 NextAuth Session 型別，支援 loginTime 時間戳記
-declare module "next-auth" {
-  interface Session {
-    loginTime?: number;
-  }
-}
-
+// 完整版 NextAuth：在 Edge-safe 設定之上，加入需要 Node runtime 的 Credentials provider
+// （會動態 import googleapis 與 bcryptjs，只在 API route / server action 被呼叫）
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    ...authConfig.providers,
     Credentials({
       credentials: {
         email: { label: "帳號（Email）", type: "email" },
@@ -28,7 +21,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        // 動態 import 避免 webpack 把 googleapis 打包進 client bundle
+        // 動態 import 避免 webpack 把 googleapis 打包進 client / edge bundle
         const { verifyCredentials } = await import("@/lib/google-sheets");
         const result = await verifyCredentials(email, password).catch(() => null);
         if (!result) return null;
@@ -37,26 +30,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  pages: {
-    signIn: "/",
-  },
-  callbacks: {
-    async session({ session, token }) {
-      if (session.user && token.email) {
-        session.user.email = token.email;
-      }
-      // 將登入時間傳入 session
-      session.loginTime = token.loginTime as number | undefined;
-      return session;
-    },
-    async jwt({ token, account }) {
-      if (account) {
-        // account 只在剛登入時存在，記錄此時的時間戳記（毫秒）
-        token.accessToken = account.access_token;
-        token.loginTime = Date.now();
-      }
-      // 不清除 loginTime，保留在 token 中供後續比對
-      return token;
-    },
-  },
 });
