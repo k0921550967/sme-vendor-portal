@@ -59,6 +59,7 @@ export default async function DashboardPage() {
         <DashboardClient
           courses={filteredCourses}
           isViewer={isViewer}
+          role={authRecord.role}
         />
       </main>
     </div>

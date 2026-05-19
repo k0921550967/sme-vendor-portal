@@ -20,12 +20,16 @@ async function runSync(): Promise<{ synced: number; error?: string }> {
   const data: ApiCourseResponse = await res.json();
 
   // 將分組格式攤平，加入 category 欄位
+  // 對 latest_publish_status / latest_completion_status 做容錯，
+  // 若外部 API 尚未回傳這兩個欄位，存空字串以免 Sheet 寫入失敗
   const courses: CourseRecord[] = [];
   for (const [category, records] of Object.entries(data)) {
     for (const record of records) {
       courses.push({
         ...record,
         category,
+        latest_publish_status: record.latest_publish_status ?? "",
+        latest_completion_status: record.latest_completion_status ?? "",
       });
     }
   }

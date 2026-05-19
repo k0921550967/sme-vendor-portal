@@ -36,11 +36,31 @@ function parseArrayField(value: string | undefined): string[] {
   }
 }
 
+// ──────────────────────────────────────────────
+// 「課程資料」Sheet 欄位順序（A → M）
+//  A  id
+//  B  class_id
+//  C  class_name
+//  D  school_name           （JSON 陣列字串）
+//  E  schedule_address
+//  F  start_hour            （ISO 字串）
+//  G  duration              （小時）
+//  H  teachers              （JSON 陣列字串）
+//  I  student_count
+//  J  category
+//  K  latest_publish_status      ← 新增（開課狀態）
+//  L  latest_completion_status   ← 新增（請款狀態）
+//  M  updated_at            （原本在 K，往後移到 M）
+//
+// 注意：若 Sheet 欄位順序變動，請同步調整 COURSE_RANGE 與下方欄位 index
+// ──────────────────────────────────────────────
+const COURSE_RANGE = "課程資料!A2:M";
+
 export async function getCourseData(): Promise<CourseRecord[]> {
   const sheets = getSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "課程資料!A2:K",
+    range: COURSE_RANGE,
   });
 
   const rows = response.data.values || [];
@@ -57,7 +77,9 @@ export async function getCourseData(): Promise<CourseRecord[]> {
       teachers: parseArrayField(row[7]),
       student_count: Number(row[8]) || 0,
       category: row[9] || "",
-      updated_at: row[10] || "",
+      latest_publish_status: (row[10] || "").toString().trim(),
+      latest_completion_status: (row[11] || "").toString().trim(),
+      updated_at: row[12] || "",
     }));
 }
 
@@ -236,10 +258,10 @@ export async function getApiUrl(): Promise<string> {
 export async function updateCourseData(courses: CourseRecord[]): Promise<void> {
   const sheets = getSheetsClient();
 
-  // 清除舊資料
+  // 清除舊資料（涵蓋 A~M 全部欄位）
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SPREADSHEET_ID,
-    range: "課程資料!A2:K",
+    range: COURSE_RANGE,
   });
 
   if (courses.length === 0) return;
@@ -256,6 +278,8 @@ export async function updateCourseData(courses: CourseRecord[]): Promise<void> {
     JSON.stringify(c.teachers),
     c.student_count,
     c.category,
+    c.latest_publish_status ?? "",
+    c.latest_completion_status ?? "",
     now,
   ]);
 

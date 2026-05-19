@@ -9,6 +9,10 @@ export interface CourseRecord {
   teachers: string[];
   student_count: number;
   category: string;
+  /** 開課狀態（原始 API 欄位 latest_publish_status，常見值如 ok / pending / draft ...） */
+  latest_publish_status: string;
+  /** 請款狀態（原始 API 欄位 latest_completion_status） */
+  latest_completion_status: string;
   updated_at?: string;
 }
 
