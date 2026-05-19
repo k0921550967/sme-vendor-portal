@@ -14,9 +14,10 @@ import {
   filterCoursesByPublishStatus,
   isAdminOnlyColumnKey,
   isAdminRole,
-  isTableColumnVisible,
+  orderVisibleColumnsForRole,
   resolvePublishStatusFilter,
 } from "@/lib/dashboard-access";
+import { formatDateTimeNoSeconds } from "@/lib/date-format";
 import StatsCards from "./StatsCards";
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -24,41 +25,22 @@ import StatsCards from "./StatsCards";
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 function formatDateTime(iso: string): string {
-  if (!iso) return "-";
-  const raw = iso.trim();
-  try {
-    // 直接從字串擷取，不經 Date 轉換，避免秒數與時區偏移
-    const match = raw.match(
-      /^(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2})/
-    );
-    if (match) {
-      const [, year, month, day, hour, min] = match;
-      return `${year}/${month}/${day} ${hour}:${min}`;
-    }
-    return new Intl.DateTimeFormat("zh-TW", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Taipei",
-    }).format(new Date(raw));
-  } catch {
-    // fallback：去掉秒數與毫秒
-    return raw
-      .replace(/(\d{2}:\d{2}):\d{2}(?:\.\d+)?/, "$1")
-      .replace("T", " ");
-  }
+  return formatDateTimeNoSeconds(iso);
 }
 
 function formatDateRange(iso: string, durationHours: number): { date: string; timeRange: string } {
   if (!iso) return { date: "-", timeRange: "" };
   try {
-    // 直接解析字串數字，避免 Date 物件將 UTC "Z" 轉成本地時區
-    // e.g. "2026-05-27T14:00:00.000Z" → 當作台灣時間 14:00，不做 +8 轉換
-    const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-    if (!match) return { date: iso, timeRange: "" };
+    // 同時支援「YYYY-MM-DDTHH:MM」與「YYYY/MM/DD H:MM」兩種格式
+    // \d{1,2} 讓小時支援單位數（如 9:00:00）
+    const match = iso.match(
+      /^(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?/
+    );
+    if (!match) {
+      // 無法解析時，至少把秒數去掉
+      const cleaned = iso.replace(/(\d{1,2}:\d{2}):\d{2}(?:\.\d+)?/g, "$1").replace("T", " ");
+      return { date: cleaned, timeRange: "" };
+    }
 
     const [, year, month, day, hourStr, minStr] = match;
     const date = `${year}/${month}/${day}`;
@@ -77,7 +59,8 @@ function formatDateRange(iso: string, durationHours: number): { date: string; ti
       timeRange: durationHours > 0 ? `${fmt(startMin)} - ${fmt(endMin)}` : fmt(startMin),
     };
   } catch {
-    return { date: iso, timeRange: "" };
+    const cleaned = iso.replace(/(\d{1,2}:\d{2}):\d{2}(?:\.\d+)?/g, "$1").replace("T", " ");
+    return { date: cleaned, timeRange: "" };
   }
 }
 
@@ -237,7 +220,7 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: "class_name",                label: "班級名稱",     align: "center", defaultWidth: 260, minWidth: 160, sortable: true,  sortType: "text",              groupLevel: true  },
+  { key: "class_name",                label: "班級名稱",     align: "center", defaultWidth: 260, minWidth: 160, sortable: true,  sortType: "text",              groupLevel: true,  visibleForRoles: ["admin"] },
   { key: "student_count",             label: "學生人數",     align: "center", defaultWidth: 110, minWidth: 80,  sortable: true,  sortType: "number",            groupLevel: true  },
   { key: "category",                  label: "類別",         align: "center", defaultWidth: 140, minWidth: 80,  sortable: true,  sortType: "text",              groupLevel: true, hidden: true },
   { key: "start_hour",                label: "開課時間",     align: "left",   defaultWidth: 200, minWidth: 130, sortable: true,  sortType: "date",              groupLevel: false },
@@ -447,19 +430,18 @@ function renderGroupLevelCell(
   key: ColumnKey,
   group: ClassGroup,
   categoryColorMap: Record<string, string>,
-  mainUpdatedAt: string | null
+  mainUpdatedAt: string | null,
+  options: { useCategoryStyleForSchool: boolean }
 ): React.ReactNode {
+  const categoryBadgeCls =
+    categoryColorMap[group.category] ??
+    "bg-gray-100 border border-gray-200 text-gray-600";
   switch (key) {
     case "class_name": {
       const sessionCount = group.sessions.length;
       return (
         <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
-          <span
-            className={`font-medium px-2 py-0.5 rounded-full ${
-              categoryColorMap[group.category] ??
-              "bg-gray-100 border border-gray-200 text-gray-600"
-            }`}
-          >
+          <span className={`font-medium px-2 py-0.5 rounded-full ${categoryBadgeCls}`}>
             {group.class_name || "-"}
           </span>
           {sessionCount > 1 && (
@@ -474,7 +456,22 @@ function renderGroupLevelCell(
       );
     }
     case "school_name":
-      return group.school_name.length > 0 ? (
+      if (group.school_name.length === 0) return "-";
+      if (options.useCategoryStyleForSchool) {
+        return (
+          <div className="flex flex-col items-center gap-1">
+            {group.school_name.map((s, i) => (
+              <span
+                key={i}
+                className={`inline-block font-medium ${TABLE_FONT.badge} px-2 py-0.5 rounded-full whitespace-nowrap ${categoryBadgeCls}`}
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+        );
+      }
+      return (
         <div className="flex flex-col items-center gap-0.5">
           {group.school_name.map((s, i) => (
             <span key={i} className={TABLE_FONT.cellSmall}>
@@ -482,16 +479,11 @@ function renderGroupLevelCell(
             </span>
           ))}
         </div>
-      ) : (
-        "-"
       );
     case "category":
       return (
         <span
-          className={`inline-block ${TABLE_FONT.badge} px-2 py-0.5 rounded-full whitespace-nowrap ${
-            categoryColorMap[group.category] ??
-            "bg-gray-100 border border-gray-200 text-gray-600"
-          }`}
+          className={`inline-block ${TABLE_FONT.badge} px-2 py-0.5 rounded-full whitespace-nowrap ${categoryBadgeCls}`}
         >
           {group.category || "-"}
         </span>
@@ -531,24 +523,20 @@ function renderSessionCell(key: ColumnKey, session: CourseRecord): React.ReactNo
       const status = getCourseStatus(session.start_hour, session.duration);
       const label = STATUS_LABEL[status];
       return (
-        <>
-          <div className={`flex items-baseline gap-2 whitespace-nowrap ${TABLE_FONT.cellSmall}`}>
-            <span>{date}</span>
-            {label && (
-              <span
-                style={{ fontSize: TABLE_FONT.statusLabel }}
-                className={`font-medium ${STATUS_COLOR[status]}`}
-              >
-                {label}
-              </span>
-            )}
-          </div>
+        <div className={`whitespace-nowrap ${TABLE_FONT.cellSmall}`}>
+          <span>{date}</span>
           {timeRange && (
-            <span className={`text-gray-600 whitespace-nowrap ${TABLE_FONT.cellSmall}`}>
-              {timeRange}
+            <span className="ml-1 text-gray-600">{timeRange}</span>
+          )}
+          {label && (
+            <span
+              style={{ fontSize: TABLE_FONT.statusLabel }}
+              className={`ml-1.5 font-medium ${STATUS_COLOR[status]}`}
+            >
+              {label}
             </span>
           )}
-        </>
+        </div>
       );
     }
     case "duration":
@@ -603,9 +591,11 @@ export default function DashboardClient({
   // 欄位（依角色過濾）
   // ──────────────────────────────────────────────
   const visibleColumns = useMemo(
-    () => COLUMNS.filter((col) => isTableColumnVisible(col, columnVisibilityCtx)),
+    () => orderVisibleColumnsForRole(COLUMNS, columnVisibilityCtx),
     [columnVisibilityCtx]
   );
+
+  const useCategoryStyleForSchool = !isAdmin;
 
   // 若目前排序欄位對非 admin 不可見，清除排序避免無效 state
   useEffect(() => {
@@ -816,12 +806,17 @@ export default function DashboardClient({
     if (sort) {
       const col = visibleColumns.find((c) => c.key === sort.key);
       if (col) g.sort((a, b) => compareGroups(a, b, col, sort.direction));
-    } else {
-      // 預設：依班級名稱（筆畫）升序
+    } else if (isAdmin) {
+      // admin 預設：依班級名稱（筆畫）升序
       g.sort((a, b) => strokeCollator.compare(a.class_name || "", b.class_name || ""));
+    } else {
+      // 非 admin 預設：依開課單位（筆畫）升序
+      g.sort((a, b) =>
+        strokeCollator.compare(a.school_name.join("、"), b.school_name.join("、"))
+      );
     }
     return g;
-  }, [filteredSessions, sort, visibleColumns]);
+  }, [filteredSessions, sort, visibleColumns, isAdmin]);
 
   // ──────────────────────────────────────────────
   // 排序按鈕：null → asc → desc → null 三段循環
@@ -1069,7 +1064,13 @@ export default function DashboardClient({
                       >
                         {col.groupLevel ? (
                           <div className="flex flex-col items-center justify-center">
-                            {renderGroupLevelCell(col.key, group, categoryColorMap, mainUpdatedAt)}
+                            {renderGroupLevelCell(
+                              col.key,
+                              group,
+                              categoryColorMap,
+                              mainUpdatedAt,
+                              { useCategoryStyleForSchool }
+                            )}
                           </div>
                         ) : (
                           <div className="flex flex-col">

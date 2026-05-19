@@ -4,12 +4,16 @@ import { CourseRecord, UserRole } from "@/types";
  * 儀表板權限與資料可見性
  *
  * 角色（授權名單 sheet）：
- * - admin：可看全部 latest_publish_status、表格含「開課狀態」「請款狀態」欄
- * - manager / viewer：僅看 latest_publish_status = ok，且不顯示上述兩欄
+ * - admin：班級名稱置首、開課/請款狀態欄、可篩選全部 publish_status
+ * - manager / viewer：
+ *     - 僅看 latest_publish_status = ok
+ *     - 隱藏：班級名稱、開課狀態、請款狀態
+ *     - 開課單位為第一欄（配色同 category）
  *
  * 擴充方式：
- * - 新角色限制：在 ColumnDef.visibleForRoles 加角色
- * - 新預設篩選：調整 DEFAULT_PUBLISH_STATUS_FOR_NON_ADMIN
+ * - 欄位可見：ColumnDef.visibleForRoles / hidden / viewerHidden
+ * - 欄位順序：orderVisibleColumnsForRole()
+ * - 資料篩選：DEFAULT_PUBLISH_STATUS_FOR_NON_ADMIN
  */
 
 /** 非 admin 強制套用的開課狀態篩選（已通過） */
@@ -70,10 +74,34 @@ export function isTableColumnVisible(
 
 /** admin 專用欄位 key（供排序重置等邏輯使用） */
 export const ADMIN_ONLY_COLUMN_KEYS = [
+  "class_name",
   "latest_publish_status",
   "latest_completion_status",
 ] as const;
 
 export function isAdminOnlyColumnKey(key: string): boolean {
   return (ADMIN_ONLY_COLUMN_KEYS as readonly string[]).includes(key);
+}
+
+/** 非 admin 時固定置於最前面的欄位 */
+export const NON_ADMIN_LEADING_COLUMN_KEY = "school_name";
+
+export interface ColumnRoleGateWithKey extends ColumnRoleGate {
+  key: string;
+}
+
+/**
+ * 依角色過濾可見欄位，並套用角色專屬欄位順序
+ */
+export function orderVisibleColumnsForRole<T extends ColumnRoleGateWithKey>(
+  allColumns: T[],
+  ctx: { role: UserRole; isViewer: boolean }
+): T[] {
+  const visible = allColumns.filter((col) => isTableColumnVisible(col, ctx));
+  if (isAdminRole(ctx.role)) return visible;
+
+  const leadKey = NON_ADMIN_LEADING_COLUMN_KEY;
+  const lead = visible.find((c) => c.key === leadKey);
+  const rest = visible.filter((c) => c.key !== leadKey);
+  return lead ? [lead, ...rest] : visible;
 }
