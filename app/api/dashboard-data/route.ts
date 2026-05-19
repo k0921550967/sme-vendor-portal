@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import {
+  DEFAULT_PUBLISH_STATUS_FOR_NON_ADMIN,
+  filterCoursesByPublishStatus,
+  isAdminRole,
+} from "@/lib/dashboard-access";
 import { getAuthRecord, getCourseData } from "@/lib/google-sheets";
 
 export const dynamic = "force-dynamic";
@@ -40,11 +45,19 @@ export async function GET() {
         matchFilter(c.teachers, authRecord.allowed_teachers)
     );
 
+    // 非 admin 僅能看已通過開課（ok）
+    const coursesAfterPublish = isAdminRole(authRecord.role)
+      ? filteredCourses
+      : filterCoursesByPublishStatus(
+          filteredCourses,
+          DEFAULT_PUBLISH_STATUS_FOR_NON_ADMIN
+        );
+
     // viewer 移除 student_count
     const showStudentCount = authRecord.role !== "viewer";
     const courses = showStudentCount
-      ? filteredCourses
-      : filteredCourses.map(({ student_count: _sc, ...rest }) => rest);
+      ? coursesAfterPublish
+      : coursesAfterPublish.map(({ student_count: _sc, ...rest }) => rest);
 
     return NextResponse.json({
       user: {

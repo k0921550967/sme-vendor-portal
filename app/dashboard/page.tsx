@@ -1,6 +1,11 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getAuthRecord, getCourseData } from "@/lib/google-sheets";
+import {
+  DEFAULT_PUBLISH_STATUS_FOR_NON_ADMIN,
+  filterCoursesByPublishStatus,
+  isAdminRole,
+} from "@/lib/dashboard-access";
 import { CourseRecord } from "@/types";
 import Header from "@/components/Header";
 import DashboardClient from "@/components/DashboardClient";
@@ -45,6 +50,14 @@ export default async function DashboardPage() {
 
   const isViewer = authRecord.role === "viewer";
 
+  // 非 admin 僅能看已通過開課（ok）；admin 由前端篩選器控制
+  const coursesForUser = isAdminRole(authRecord.role)
+    ? filteredCourses
+    : filterCoursesByPublishStatus(
+        filteredCourses,
+        DEFAULT_PUBLISH_STATUS_FOR_NON_ADMIN
+      );
+
   const userInfo = {
     email,
     vendor_name: authRecord.vendor_name,
@@ -57,7 +70,7 @@ export default async function DashboardPage() {
       <Header user={userInfo} />
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-4 py-6">
         <DashboardClient
-          courses={filteredCourses}
+          courses={coursesForUser}
           isViewer={isViewer}
           role={authRecord.role}
         />

@@ -9,6 +9,14 @@ import {
   useLayoutEffect,
 } from "react";
 import { CourseRecord, UserRole } from "@/types";
+import {
+  ALL_PUBLISH_STATUSES_TOKEN,
+  filterCoursesByPublishStatus,
+  isAdminOnlyColumnKey,
+  isAdminRole,
+  isTableColumnVisible,
+  resolvePublishStatusFilter,
+} from "@/lib/dashboard-access";
 import StatsCards from "./StatsCards";
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -223,6 +231,8 @@ interface ColumnDef {
   sortType: SortType;
   groupLevel: boolean; // true = 同班級共用一格；false = 逐場次堆疊
   viewerHidden?: boolean;
+  /** 僅指定角色可見；未設定則所有角色可見 */
+  visibleForRoles?: UserRole[];
   hidden?: boolean;
 }
 
@@ -235,8 +245,8 @@ const COLUMNS: ColumnDef[] = [
   { key: "school_name",               label: "開課單位",     align: "center", defaultWidth: 200, minWidth: 120, sortable: true,  sortType: "text",              groupLevel: true  },
   { key: "schedule_address",          label: "地址",         align: "left",   defaultWidth: 240, minWidth: 140, sortable: true,  sortType: "text",              groupLevel: false },
   { key: "teachers",                  label: "教師",         align: "center", defaultWidth: 160, minWidth: 100, sortable: true,  sortType: "text",              groupLevel: false },
-  { key: "latest_publish_status",     label: "開課狀態",     align: "center", defaultWidth: 180, minWidth: 120, sortable: true,  sortType: "publish_status",    groupLevel: true  },
-  { key: "latest_completion_status",  label: "請款狀態",     align: "center", defaultWidth: 150, minWidth: 110, sortable: true,  sortType: "completion_status", groupLevel: true  },
+  { key: "latest_publish_status",     label: "開課狀態",     align: "center", defaultWidth: 180, minWidth: 120, sortable: true,  sortType: "publish_status",    groupLevel: true,  visibleForRoles: ["admin"] },
+  { key: "latest_completion_status",  label: "請款狀態",     align: "center", defaultWidth: 150, minWidth: 110, sortable: true,  sortType: "completion_status", groupLevel: true,  visibleForRoles: ["admin"] },
 ];
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -556,7 +566,6 @@ function renderSessionCell(key: ColumnKey, session: CourseRecord): React.ReactNo
 // ║ 11. 主元件                                                                ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 type StatusTab = "all" | "upcoming" | "ongoing" | "ended";
-const ALL_PUBLISH = "__all__";
 
 interface SortState {
   key: ColumnKey;
@@ -572,7 +581,11 @@ export default function DashboardClient({
   isViewer: boolean;
   role: UserRole;
 }) {
-  const isAdmin = role === "admin";
+  const isAdmin = isAdminRole(role);
+  const columnVisibilityCtx = useMemo(
+    () => ({ role, isViewer }),
+    [role, isViewer]
+  );
 
   const [query, setQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -590,9 +603,16 @@ export default function DashboardClient({
   // 欄位（依角色過濾）
   // ──────────────────────────────────────────────
   const visibleColumns = useMemo(
-    () => COLUMNS.filter((col) => !col.hidden && !(col.viewerHidden && isViewer)),
-    [isViewer]
+    () => COLUMNS.filter((col) => isTableColumnVisible(col, columnVisibilityCtx)),
+    [columnVisibilityCtx]
   );
+
+  // 若目前排序欄位對非 admin 不可見，清除排序避免無效 state
+  useEffect(() => {
+    if (!isAdmin && sort && isAdminOnlyColumnKey(sort.key)) {
+      setSort(null);
+    }
+  }, [isAdmin, sort]);
 
   // ──────────────────────────────────────────────
   // 欄寬
@@ -743,20 +763,21 @@ export default function DashboardClient({
   // 篩選下拉的可選值：依 PUBLISH_STATUSES 順序顯示
   const publishFilterOptions: { value: string; label: string }[] = useMemo(
     () => [
-      { value: ALL_PUBLISH, label: "全部" },
+      { value: ALL_PUBLISH_STATUSES_TOKEN, label: "全部" },
       ...PUBLISH_STATUSES.map((s) => ({ value: s.value, label: s.label })),
     ],
     []
   );
 
-  const effectivePublishFilter = isAdmin ? publishStatusFilter : "ok";
+  const effectivePublishFilter = resolvePublishStatusFilter(
+    role,
+    publishStatusFilter
+  );
 
-  const coursesAfterPublishFilter = useMemo(() => {
-    if (effectivePublishFilter === ALL_PUBLISH) return courses;
-    return courses.filter(
-      (c) => normalizeStatus(c.latest_publish_status) === effectivePublishFilter
-    );
-  }, [courses, effectivePublishFilter]);
+  const coursesAfterPublishFilter = useMemo(
+    () => filterCoursesByPublishStatus(courses, effectivePublishFilter),
+    [courses, effectivePublishFilter]
+  );
 
   // tab 數字基於 publish_status 篩選後的資料
   const tabCounts = useMemo(
@@ -793,14 +814,14 @@ export default function DashboardClient({
   const groups: ClassGroup[] = useMemo(() => {
     const g = groupByClass(filteredSessions);
     if (sort) {
-      const col = COLUMNS.find((c) => c.key === sort.key);
+      const col = visibleColumns.find((c) => c.key === sort.key);
       if (col) g.sort((a, b) => compareGroups(a, b, col, sort.direction));
     } else {
       // 預設：依班級名稱（筆畫）升序
       g.sort((a, b) => strokeCollator.compare(a.class_name || "", b.class_name || ""));
     }
     return g;
-  }, [filteredSessions, sort]);
+  }, [filteredSessions, sort, visibleColumns]);
 
   // ──────────────────────────────────────────────
   // 排序按鈕：null → asc → desc → null 三段循環
